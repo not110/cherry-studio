@@ -1,14 +1,13 @@
 import {
   ClearOutlined,
-  ControlOutlined,
   FormOutlined,
   FullscreenExitOutlined,
   FullscreenOutlined,
   GlobalOutlined,
   PauseCircleOutlined,
+  PicCenterOutlined,
   QuestionCircleOutlined
 } from '@ant-design/icons'
-import { PicCenterOutlined } from '@ant-design/icons'
 import TranslateButton from '@renderer/components/TranslateButton'
 import { isVisionModel, isWebSearchModel } from '@renderer/config/models'
 import db from '@renderer/databases'
@@ -17,23 +16,27 @@ import { modelGenerating, useRuntime } from '@renderer/hooks/useRuntime'
 import { useMessageStyle, useSettings } from '@renderer/hooks/useSettings'
 import { useShortcut, useShortcutDisplay } from '@renderer/hooks/useShortcuts'
 import { useSidebarIconShow } from '@renderer/hooks/useSidebarIcon'
-import { useShowTopics } from '@renderer/hooks/useStore'
 import { addAssistantMessagesToTopic, getDefaultTopic } from '@renderer/services/AssistantService'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import FileManager from '@renderer/services/FileManager'
 import { estimateTextTokens as estimateTxtTokens } from '@renderer/services/TokenService'
 import { translateText } from '@renderer/services/TranslateService'
+import WebSearchService from '@renderer/services/WebSearchService'
 import store, { useAppDispatch, useAppSelector } from '@renderer/store'
 import { setGenerating, setSearching } from '@renderer/store/runtime'
 import { Assistant, FileType, KnowledgeBase, Message, Model, Topic } from '@renderer/types'
 import { classNames, delay, getFileExtension, uuid } from '@renderer/utils'
+import { abortCompletion } from '@renderer/utils/abortController'
+import { getFilesFromDropEvent } from '@renderer/utils/input'
 import { documentExts, imageExts, textExts } from '@shared/config/constant'
 import { Button, Popconfirm, Tooltip } from 'antd'
 import TextArea, { TextAreaRef } from 'antd/es/input/TextArea'
 import dayjs from 'dayjs'
+import Logger from 'electron-log/renderer'
 import { debounce, isEmpty } from 'lodash'
-import { CSSProperties, FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { CSSProperties, FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 
 import NarrowLayout from '../Messages/NarrowLayout'
@@ -52,7 +55,6 @@ interface Props {
 
 let _text = ''
 let _files: FileType[] = []
-let _base: KnowledgeBase | undefined
 
 const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
   const [text, setText] = useState(_text)
@@ -76,19 +78,19 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
   const [files, setFiles] = useState<FileType[]>(_files)
   const { t } = useTranslation()
   const containerRef = useRef(null)
-  const { showTopics, toggleShowTopics } = useShowTopics()
   const { searching } = useRuntime()
   const { isBubbleStyle } = useMessageStyle()
   const dispatch = useAppDispatch()
   const [spaceClickCount, setSpaceClickCount] = useState(0)
   const spaceClickTimer = useRef<NodeJS.Timeout>()
   const [isTranslating, setIsTranslating] = useState(false)
-  const [selectedKnowledgeBase, setSelectedKnowledgeBase] = useState<KnowledgeBase | undefined>(_base)
+  const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<KnowledgeBase[]>([])
   const [mentionModels, setMentionModels] = useState<Model[]>([])
   const [isMentionPopupOpen, setIsMentionPopupOpen] = useState(false)
-
+  const currentMessageId = useRef<string>()
   const isVision = useMemo(() => isVisionModel(model), [model])
   const supportExts = useMemo(() => [...textExts, ...documentExts, ...(isVision ? imageExts : [])], [isVision])
+  const navigate = useNavigate()
 
   const showKnowledgeIcon = useSidebarIconShow('knowledge')
 
@@ -104,7 +106,6 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
 
   _text = text
   _files = files
-  _base = selectedKnowledgeBase
 
   const sendMessage = useCallback(async () => {
     await modelGenerating()
@@ -124,8 +125,8 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
       status: 'success'
     }
 
-    if (selectedKnowledgeBase) {
-      message.knowledgeBaseIds = [selectedKnowledgeBase.id]
+    if (selectedKnowledgeBases) {
+      message.knowledgeBaseIds = selectedKnowledgeBases.map((base) => base.id)
     }
 
     if (files.length > 0) {
@@ -135,7 +136,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
     if (mentionModels.length > 0) {
       message.mentions = mentionModels
     }
-
+    currentMessageId.current = message.id
     EventEmitter.emit(EVENT_NAMES.SEND_MESSAGE, message)
 
     setText('')
@@ -144,7 +145,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
     setTimeout(() => resizeTextArea(), 0)
 
     setExpend(false)
-  }, [inputEmpty, text, assistant.id, assistant.topics, selectedKnowledgeBase, files, mentionModels])
+  }, [inputEmpty, text, assistant.id, assistant.topics, selectedKnowledgeBases, files, mentionModels])
 
   const translate = async () => {
     if (isTranslating) {
@@ -243,6 +244,11 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
       sendMessage()
       return event.preventDefault()
     }
+
+    if (event.key === 'Backspace' && text.trim() === '' && mentionModels.length > 0) {
+      setMentionModels((prev) => prev.slice(0, -1))
+      return event.preventDefault()
+    }
   }
 
   const addNewTopic = useCallback(async () => {
@@ -271,6 +277,9 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
   }
 
   const onPause = () => {
+    if (currentMessageId.current) {
+      abortCompletion(currentMessageId.current)
+    }
     window.keyv.set(EVENT_NAMES.CHAT_COMPLETION_PAUSED, true)
     store.dispatch(setGenerating(false))
   }
@@ -383,18 +392,22 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
     e.stopPropagation()
   }
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     e.stopPropagation()
 
-    const files = Array.from(e.dataTransfer.files)
-
-    files.forEach(async (file) => {
-      if (supportExts.includes(getFileExtension(file.path))) {
-        const selectedFile = await window.api.file.get(file.path)
-        selectedFile && setFiles((prevFiles) => [...prevFiles, selectedFile])
-      }
+    const files = await getFilesFromDropEvent(e).catch((err) => {
+      Logger.error('[src/renderer/src/pages/home/Inputbar/Inputbar.tsx] handleDrop:', err)
+      return null
     })
+
+    if (files) {
+      files.forEach((file) => {
+        if (supportExts.includes(getFileExtension(file.path))) {
+          setFiles((prevFiles) => [...prevFiles, file])
+        }
+      })
+    }
   }
 
   const onTranslated = (translatedText: string) => {
@@ -458,14 +471,15 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
   }, [])
 
   useEffect(() => {
-    setSelectedKnowledgeBase(showKnowledgeIcon ? assistant.knowledge_base : undefined)
-  }, [assistant.id, assistant.knowledge_base, showKnowledgeIcon])
+    // if assistant knowledge bases are undefined return []
+    setSelectedKnowledgeBases(showKnowledgeIcon ? (assistant.knowledge_bases ?? []) : [])
+  }, [assistant.id, assistant.knowledge_bases, showKnowledgeIcon])
 
   const textareaRows = window.innerHeight >= 1000 || isBubbleStyle ? 2 : 1
 
-  const handleKnowledgeBaseSelect = (base?: KnowledgeBase) => {
-    updateAssistant({ ...assistant, knowledge_base: base })
-    setSelectedKnowledgeBase(base)
+  const handleKnowledgeBaseSelect = (bases?: KnowledgeBase[]) => {
+    updateAssistant({ ...assistant, knowledge_bases: bases })
+    setSelectedKnowledgeBases(bases ?? [])
   }
 
   const onMentionModel = (model: Model) => {
@@ -482,12 +496,40 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
 
       setMentionModels((prev) => [...prev, model])
       setIsMentionPopupOpen(false)
+      setTimeout(() => {
+        textareaRef.current?.focus()
+      }, 0)
     }
   }
 
   const handleRemoveModel = (model: Model) => {
     setMentionModels(mentionModels.filter((m) => m.id !== model.id))
   }
+
+  const onEnableWebSearch = () => {
+    if (!isWebSearchModel(model)) {
+      if (!WebSearchService.isWebSearchEnabled()) {
+        window.modal.confirm({
+          title: t('chat.input.web_search.enable'),
+          content: t('chat.input.web_search.enable_content'),
+          centered: true,
+          okText: t('chat.input.web_search.button.ok'),
+          onOk: () => {
+            navigate('/settings/web-search')
+          }
+        })
+        return
+      }
+    }
+
+    updateAssistant({ ...assistant, enableWebSearch: !assistant.enableWebSearch })
+  }
+
+  useEffect(() => {
+    if (!isWebSearchModel(model) && !WebSearchService.isWebSearchEnabled() && assistant.enableWebSearch) {
+      updateAssistant({ ...assistant, enableWebSearch: false })
+    }
+  }, [assistant, model, updateAssistant])
 
   return (
     <Container onDragOver={handleDragOver} onDrop={handleDrop} className="inputbar">
@@ -537,17 +579,13 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
                 onMentionModel={onMentionModel}
                 ToolbarButton={ToolbarButton}
               />
-              {isWebSearchModel(model) && (
-                <Tooltip placement="top" title={t('chat.input.web_search')} arrow>
-                  <ToolbarButton
-                    type="text"
-                    onClick={() => updateAssistant({ ...assistant, enableWebSearch: !assistant.enableWebSearch })}>
-                    <GlobalOutlined
-                      style={{ color: assistant.enableWebSearch ? 'var(--color-link)' : 'var(--color-icon)' }}
-                    />
-                  </ToolbarButton>
-                </Tooltip>
-              )}
+              <Tooltip placement="top" title={t('chat.input.web_search')} arrow>
+                <ToolbarButton type="text" onClick={onEnableWebSearch}>
+                  <GlobalOutlined
+                    style={{ color: assistant.enableWebSearch ? 'var(--color-link)' : 'var(--color-icon)' }}
+                  />
+                </ToolbarButton>
+              </Tooltip>
               <Tooltip placement="top" title={t('chat.input.clear', { Command: cleanTopicShortcut })} arrow>
                 <Popconfirm
                   title={t('chat.input.clear.content')}
@@ -561,19 +599,9 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
                   </ToolbarButton>
                 </Popconfirm>
               </Tooltip>
-              <Tooltip placement="top" title={t('chat.input.settings')} arrow>
-                <ToolbarButton
-                  type="text"
-                  onClick={() => {
-                    !showTopics && toggleShowTopics()
-                    setTimeout(() => EventEmitter.emit(EVENT_NAMES.SHOW_CHAT_SETTINGS), 0)
-                  }}>
-                  <ControlOutlined />
-                </ToolbarButton>
-              </Tooltip>
               {showKnowledgeIcon && (
                 <KnowledgeBaseButton
-                  selectedBase={selectedKnowledgeBase}
+                  selectedBases={selectedKnowledgeBases}
                   onSelect={handleKnowledgeBaseSelect}
                   ToolbarButton={ToolbarButton}
                   disabled={files.length > 0}

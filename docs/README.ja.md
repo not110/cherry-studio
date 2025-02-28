@@ -13,7 +13,7 @@
 
 Cherry Studioは、複数のLLMプロバイダーをサポートするデスクトップクライアントで、Windows、Mac、Linuxで利用可能です。
 
-👏 [Telegram](https://t.me/CherryStudioAI)｜[Discord](https://discord.gg/wez8HtpxqQ) | [QQグループ(1022779719)](https://qm.qq.com/q/Qtw8As0cwe)
+👏 [Telegram](https://t.me/CherryStudioAI)｜[Discord](https://discord.gg/wez8HtpxqQ) | [QQグループ(1025067911)](https://qm.qq.com/q/RIBAO2pPKS)
 
 ❤️ Cherry Studioをお気に入りにしましたか？小さな星をつけてください 🌟 または [スポンサー](sponsor.md) をして開発をサポートしてください！❤️
 
@@ -60,6 +60,21 @@ Cherry Studioは、複数のLLMプロバイダーをサポートするデスク�
    - 🎨 ライト/ダークテーマと透明ウィンドウ対応
    - 📝 完全な Markdown レンダリング
    - 🤲 簡単な共有機能
+
+# 📝 TODO
+
+- [x] クイックポップアップ（クリップボードの読み取り、簡単な質問、説明、翻訳、要約）
+- [x] 複数モデルの回答の比較
+- [x] サービスプロバイダーが提供するSSOを使用したログインをサポート
+- [x] すべてのモデルがネットワークをサポート
+- [x] 最初の公式バージョンのリリース
+- [ ] 錯誤修復と改善 (開発中...)
+- [ ] プラグイン機能（JavaScript）
+- [ ] ブラウザ拡張機能（テキストをハイライトして翻訳、要約、ナレッジベースに追加）
+- [ ] iOS & Android クライアント
+- [ ] AIノート
+- [ ] 音声入出力（AIコール）
+- [ ] データバックアップはカスタムバックアップコンテンツをサポート
 
 # 🖥️ 開発
 
@@ -118,7 +133,8 @@ Cherry Studioへの貢献を歓迎します！以下の方法で貢献できま�
 ご支援と貢献に感謝します！
 
 ## 関連頁版
-* [one-api](https://github.com/songquanpeng/one-api):LLM APIの管理・配信システム。OpenAI、Azure、Anthropicなどの主要モデルに対応し、統一APIインターフェースを提供。APIキー管理と再配布に利用可能。
+
+- [one-api](https://github.com/songquanpeng/one-api):LLM APIの管理・配信システム。OpenAI、Azure、Anthropicなどの主要モデルに対応し、統一APIインターフェースを提供。APIキー管理と再配布に利用可能。
 
 # 🚀 コントリビューター
 

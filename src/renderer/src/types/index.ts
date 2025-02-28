@@ -1,11 +1,13 @@
+import type { TavilySearchResponse } from '@tavily/core'
 import OpenAI from 'openai'
+import React from 'react'
 import { BuiltinTheme } from 'shiki'
 
 export type Assistant = {
   id: string
   name: string
   prompt: string
-  knowledge_base?: KnowledgeBase
+  knowledge_bases?: KnowledgeBase[]
   topics: Topic[]
   type: string
   emoji?: string
@@ -52,7 +54,7 @@ export type Message = {
   translatedContent?: string
   topicId: string
   createdAt: string
-  status: 'sending' | 'pending' | 'success' | 'paused' | 'error'
+  status: 'sending' | 'pending' | 'searching' | 'success' | 'paused' | 'error'
   modelId?: string
   model?: Model
   files?: FileType[]
@@ -63,15 +65,17 @@ export type Message = {
   type: 'text' | '@' | 'clear'
   isPreset?: boolean
   mentions?: Model[]
+  askId?: string
+  useful?: boolean
+  error?: Record<string, any>
   metadata?: {
     // Gemini
     groundingMetadata?: any
     // Perplexity
     citations?: string[]
+    // Web search
+    tavily?: TavilySearchResponse
   }
-  askId?: string
-  useful?: boolean
-  error?: Record<string, any>
 }
 
 export type Metrics = {
@@ -151,6 +155,7 @@ export type MinAppType = {
   url: string
   bodered?: boolean
   background?: string
+  style?: React.CSSProperties
 }
 
 export interface FileType {
@@ -223,6 +228,7 @@ export type KnowledgeItem = {
   uniqueIds?: string[]
   type: KnowledgeItemType
   content: string | FileType
+  remark?: string
   created_at: number
   updated_at: number
   processingStatus?: ProcessingStatus
@@ -244,6 +250,7 @@ export interface KnowledgeBase {
   documentCount?: number
   chunkSize?: number
   chunkOverlap?: number
+  threshold?: number
 }
 
 export type KnowledgeBaseParams = {
@@ -270,4 +277,27 @@ export type GenerateImageParams = {
   promptEnhancement?: boolean
 }
 
+export interface TranslateHistory {
+  id: string
+  sourceText: string
+  targetText: string
+  sourceLanguage: string
+  targetLanguage: string
+  createdAt: string
+}
+
 export type SidebarIcon = 'assistants' | 'agents' | 'paintings' | 'translate' | 'minapp' | 'knowledge' | 'files'
+
+export type WebSearchProvider = {
+  id: string
+  name: string
+  apiKey: string
+}
+
+export type KnowledgeReference = {
+  id: number
+  content: string
+  sourceUrl: string
+  type: KnowledgeItemType
+  file?: FileType
+}

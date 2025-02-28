@@ -24,6 +24,7 @@ files:
   - '!**/{LICENSE,LICENSE.txt,LICENSE-MIT.txt,*.LICENSE.txt,NOTICE.txt,README.md,CHANGELOG.md}'
   - '!node_modules/rollup-plugin-visualizer'
   - '!node_modules/js-tiktoken'
+  - '!node_modules/@tavily/core/node_modules/js-tiktoken'
   - '!node_modules/pdf-parse/lib/pdf.js/{v1.9.426,v1.10.88,v2.0.550}'
   - '!node_modules/mammoth/{mammoth.browser.js,mammoth.browser.min.js}'
   - '!node_modules/html2canvas/dist/{html2canvas.min.js,html2canvas.esm.js}'
@@ -80,11 +81,8 @@ afterPack: scripts/after-pack.js
 afterSign: scripts/notarize.js
 releaseInfo:
   releaseNotes: |
-    增加服务商 LM Studio、魔搭、Perplexity、无问芯穹、DMXAPI
-    提及功能支持上下按键循环选择模型
-    小程序增加小艺
-    增加Notion连接检测功能
-    编辑模型弹窗搜索模型时，同时搜索模型的名字和ID
-    编辑模型弹窗增加推理模型筛选按钮
-    修复思考模型思考时间显示错误
-    修复部分模型翻译出错
+    Web 搜索增加更多配置选项
+    用户消息支持快速重新发送
+    知识库网址支持右键配置别名
+    支持更多类型的思考内容显示
+    知识库错误修复

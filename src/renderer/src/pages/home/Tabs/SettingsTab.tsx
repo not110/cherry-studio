@@ -27,7 +27,8 @@ import {
   setPasteLongTextThreshold,
   setRenderInputMessageAsMarkdown,
   setShowInputEstimatedTokens,
-  setShowMessageDivider
+  setShowMessageDivider,
+  setThoughtAutoCollapse
 } from '@renderer/store/settings'
 import { Assistant, AssistantSettings, ThemeMode, TranslateLanguageVarious } from '@renderer/types'
 import { modalConfirm } from '@renderer/utils'
@@ -69,7 +70,8 @@ const SettingsTab: FC<Props> = (props) => {
     mathEngine,
     autoTranslateWithSpace,
     pasteLongTextThreshold,
-    multiModelMessageStyle
+    multiModelMessageStyle,
+    thoughtAutoCollapse
   } = useSettings()
 
   const onUpdateAssistantSettings = (settings: Partial<AssistantSettings>) => {
@@ -262,6 +264,20 @@ const SettingsTab: FC<Props> = (props) => {
         </SettingRow>
         <SettingDivider />
         <SettingRow>
+          <SettingRowTitleSmall>
+            {t('chat.settings.thought_auto_collapse')}
+            <Tooltip title={t('chat.settings.thought_auto_collapse.tip')}>
+              <QuestionIcon style={{ marginLeft: 4 }} />
+            </Tooltip>
+          </SettingRowTitleSmall>
+          <Switch
+            size="small"
+            checked={thoughtAutoCollapse}
+            onChange={(checked) => dispatch(setThoughtAutoCollapse(checked))}
+          />
+        </SettingRow>
+        <SettingDivider />
+        <SettingRow>
           <SettingRowTitleSmall>{t('message.message.style')}</SettingRowTitleSmall>
           <Select
             value={messageStyle}
@@ -283,6 +299,7 @@ const SettingsTab: FC<Props> = (props) => {
             <Select.Option value="fold">{t('message.message.multi_model_style.fold')}</Select.Option>
             <Select.Option value="vertical">{t('message.message.multi_model_style.vertical')}</Select.Option>
             <Select.Option value="horizontal">{t('message.message.multi_model_style.horizontal')}</Select.Option>
+            <Select.Option value="grid">{t('message.message.multi_model_style.grid')}</Select.Option>
           </Select>
         </SettingRow>
         <SettingDivider />

@@ -1,9 +1,10 @@
 import type { ExtractChunkData } from '@llm-tools/embedjs-interfaces'
 import { TopView } from '@renderer/components/TopView'
+import { DEFAULT_KNOWLEDGE_THRESHOLD } from '@renderer/config/constant'
 import { getFileFromUrl, getKnowledgeBaseParams } from '@renderer/services/KnowledgeService'
 import { FileType, KnowledgeBase } from '@renderer/types'
 import { Input, List, Modal, Spin, Typography } from 'antd'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 
@@ -24,6 +25,7 @@ const PopupContainer: React.FC<Props> = ({ base, resolve }) => {
   const [results, setResults] = useState<Array<ExtractChunkData & { file: FileType | null }>>([])
   const [searchKeyword, setSearchKeyword] = useState('')
   const { t } = useTranslation()
+  const searchInputRef = useRef<any>(null)
 
   const handleSearch = async (value: string) => {
     if (!value.trim()) {
@@ -45,7 +47,11 @@ const PopupContainer: React.FC<Props> = ({ base, resolve }) => {
           return { ...item, file }
         })
       )
-      setResults(results)
+      const filteredResults = results.filter((item) => {
+        const threshold = base.threshold || DEFAULT_KNOWLEDGE_THRESHOLD
+        return item.score >= threshold
+      })
+      setResults(filteredResults)
     } catch (error) {
       console.error('Search failed:', error)
     } finally {
@@ -86,6 +92,7 @@ const PopupContainer: React.FC<Props> = ({ base, resolve }) => {
       onOk={onOk}
       onCancel={onCancel}
       afterClose={onClose}
+      afterOpenChange={(visible) => visible && searchInputRef.current?.focus()}
       width={800}
       footer={null}
       centered
@@ -97,6 +104,7 @@ const PopupContainer: React.FC<Props> = ({ base, resolve }) => {
           enterButton
           size="large"
           onSearch={handleSearch}
+          ref={searchInputRef}
         />
         <ResultsContainer>
           {loading ? (

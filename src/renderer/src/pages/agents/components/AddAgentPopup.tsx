@@ -9,7 +9,7 @@ import { useSidebarIconShow } from '@renderer/hooks/useSidebarIcon'
 import { fetchGenerate } from '@renderer/services/ApiService'
 import { getDefaultModel } from '@renderer/services/AssistantService'
 import { useAppSelector } from '@renderer/store'
-import { Agent } from '@renderer/types'
+import { Agent, KnowledgeBase } from '@renderer/types'
 import { getLeadingEmoji, uuid } from '@renderer/utils'
 import { Button, Form, FormInstance, Input, Modal, Popover, Select, SelectProps } from 'antd'
 import TextArea from 'antd/es/input/TextArea'
@@ -25,7 +25,7 @@ type FieldType = {
   id: string
   name: string
   prompt: string
-  knowledge_base_id: string
+  knowledge_base_ids: string[]
 }
 
 const PopupContainer: React.FC<Props> = ({ resolve }) => {
@@ -37,8 +37,8 @@ const PopupContainer: React.FC<Props> = ({ resolve }) => {
   const [emoji, setEmoji] = useState('')
   const [loading, setLoading] = useState(false)
   const knowledgeState = useAppSelector((state) => state.knowledge)
-  const knowledgeOptions: SelectProps['options'] = []
   const showKnowledgeIcon = useSidebarIconShow('knowledge')
+  const knowledgeOptions: SelectProps['options'] = []
 
   knowledgeState.bases.forEach((base) => {
     knowledgeOptions.push({
@@ -57,7 +57,9 @@ const PopupContainer: React.FC<Props> = ({ resolve }) => {
     const _agent: Agent = {
       id: uuid(),
       name: values.name,
-      knowledge_base: knowledgeState.bases.find((t) => t.id === values.knowledge_base_id),
+      knowledge_bases: values.knowledge_base_ids
+        ?.map((id) => knowledgeState.bases.find((t) => t.id === id))
+        ?.filter((base): base is KnowledgeBase => base !== undefined),
       emoji: _emoji,
       prompt: values.prompt,
       defaultModel: getDefaultModel(),
@@ -121,6 +123,7 @@ const PopupContainer: React.FC<Props> = ({ resolve }) => {
       maskClosable={false}
       afterClose={onClose}
       okText={t('agents.add.title')}
+      width={800}
       centered>
       <Form
         ref={formRef}
@@ -154,12 +157,18 @@ const PopupContainer: React.FC<Props> = ({ resolve }) => {
           />
         </div>
         {showKnowledgeIcon && (
-          <Form.Item name="knowledge_base_id" label={t('agents.add.knowledge_base')} rules={[{ required: false }]}>
+          <Form.Item name="knowledge_base_ids" label={t('agents.add.knowledge_base')} rules={[{ required: false }]}>
             <Select
+              mode="multiple"
               allowClear
               placeholder={t('agents.add.knowledge_base.placeholder')}
               menuItemSelectedIcon={<CheckOutlined />}
               options={knowledgeOptions}
+              filterOption={(input, option) =>
+                String(option?.label ?? '')
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
             />
           </Form.Item>
         )}

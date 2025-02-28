@@ -11,15 +11,27 @@ import {
   SyncOutlined,
   TranslationOutlined
 } from '@ant-design/icons'
+import { UploadOutlined } from '@ant-design/icons'
 import SelectModelPopup from '@renderer/components/Popups/SelectModelPopup'
 import TextEditPopup from '@renderer/components/Popups/TextEditPopup'
 import { TranslateLanguageOptions } from '@renderer/config/translate'
 import { modelGenerating } from '@renderer/hooks/useRuntime'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
-import { resetAssistantMessage } from '@renderer/services/MessagesService'
+import { getMessageTitle, resetAssistantMessage } from '@renderer/services/MessagesService'
 import { translateText } from '@renderer/services/TranslateService'
 import { Message, Model } from '@renderer/types'
-import { removeTrailingDoubleSpaces, uuid } from '@renderer/utils'
+import {
+  captureScrollableDivAsBlob,
+  captureScrollableDivAsDataURL,
+  removeTrailingDoubleSpaces,
+  uuid
+} from '@renderer/utils'
+import {
+  exportMarkdownToNotion,
+  exportMessageAsMarkdown,
+  messageToMarkdown,
+  exportMarkdownToYuque
+} from '@renderer/utils/export'
 import { Button, Dropdown, Popconfirm, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 import { isEmpty } from 'lodash'
@@ -35,6 +47,7 @@ interface Props {
   isGrouped?: boolean
   isLastMessage: boolean
   isAssistantMessage: boolean
+  messageContainerRef: React.RefObject<HTMLDivElement>
   setModel: (model: Model) => void
   onEditMessage?: (message: Message) => void
   onDeleteMessage?: (message: Message) => Promise<void>
@@ -50,6 +63,7 @@ const MessageMenubar: FC<Props> = (props) => {
     isLastMessage,
     isAssistantMessage,
     assistantModel,
+    messageContainerRef,
     onEditMessage,
     onDeleteMessage,
     onGetMessages
@@ -60,12 +74,16 @@ const MessageMenubar: FC<Props> = (props) => {
 
   const isUserMessage = message.role === 'user'
 
-  const onCopy = useCallback(() => {
-    navigator.clipboard.writeText(removeTrailingDoubleSpaces(message.content))
-    window.message.success({ content: t('message.copied'), key: 'copy-message' })
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [message.content, t])
+  const onCopy = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      navigator.clipboard.writeText(removeTrailingDoubleSpaces(message.content))
+      window.message.success({ content: t('message.copied'), key: 'copy-message' })
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    },
+    [message.content, t]
+  )
 
   const onNewBranch = useCallback(async () => {
     await modelGenerating()
@@ -142,6 +160,11 @@ const MessageMenubar: FC<Props> = (props) => {
     resendMessage && onResend()
   }, [message, onEditMessage, onResend, t])
 
+  const onResendUserMessage = useCallback(async () => {
+    await onEditMessage?.({ ...message, content: message.content })
+    onResend && onResend()
+  }, [message, onEditMessage, onResend])
+
   const handleTranslate = useCallback(
     async (language: string) => {
       if (isTranslating) return
@@ -190,19 +213,82 @@ const MessageMenubar: FC<Props> = (props) => {
         key: 'new-branch',
         icon: <ForkOutlined />,
         onClick: onNewBranch
+      },
+      {
+        label: t('chat.topics.export.title'),
+        key: 'export',
+        icon: <UploadOutlined />,
+        children: [
+          {
+            label: t('chat.topics.copy.image'),
+            key: 'img',
+            onClick: async () => {
+              await captureScrollableDivAsBlob(messageContainerRef, async (blob) => {
+                if (blob) {
+                  await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+                }
+              })
+            }
+          },
+          {
+            label: t('chat.topics.export.image'),
+            key: 'image',
+            onClick: async () => {
+              const imageData = await captureScrollableDivAsDataURL(messageContainerRef)
+              const title = getMessageTitle(message)
+              if (title && imageData) {
+                window.api.file.saveImage(title, imageData)
+              }
+            }
+          },
+          {
+            label: t('chat.topics.export.md'),
+            key: 'markdown',
+            onClick: () => exportMessageAsMarkdown(message)
+          },
+
+          {
+            label: t('chat.topics.export.word'),
+            key: 'word',
+            onClick: async () => {
+              const markdown = messageToMarkdown(message)
+              window.api.export.toWord(markdown, getMessageTitle(message))
+            }
+          },
+          {
+            label: t('chat.topics.export.notion'),
+            key: 'notion',
+            onClick: async () => {
+              const title = getMessageTitle(message)
+              const markdown = messageToMarkdown(message)
+              exportMarkdownToNotion(title, markdown)
+            }
+          },
+          {
+            label: t('chat.topics.export.yuque'),
+            key: 'yuque',
+            onClick: async () => {
+              const title = getMessageTitle(message)
+              const markdown = messageToMarkdown(message)
+              exportMarkdownToYuque(title, markdown)
+            }
+          }
+        ]
       }
     ],
-    [message, onEdit, onNewBranch, t]
+    [message, messageContainerRef, onEdit, onNewBranch, t]
   )
 
-  const onRegenerate = async () => {
+  const onRegenerate = async (e: React.MouseEvent | undefined) => {
+    e?.stopPropagation?.()
     await modelGenerating()
-    const selectedModel = isGrouped ? model : assistantModel
+    const selectedModel = message.model || (isGrouped ? model : assistantModel)
     const _message = resetAssistantMessage(message, selectedModel)
     onEditMessage?.(_message)
   }
 
-  const onMentionModel = async () => {
+  const onMentionModel = async (e: React.MouseEvent) => {
+    e.stopPropagation()
     await modelGenerating()
     const selectedModel = await SelectModelPopup.show({ model })
     if (!selectedModel) return
@@ -216,12 +302,23 @@ const MessageMenubar: FC<Props> = (props) => {
     onEditMessage?.(_message)
   }
 
-  const onUseful = useCallback(() => {
-    onEditMessage?.({ ...message, useful: !message.useful })
-  }, [message, onEditMessage])
+  const onUseful = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      onEditMessage?.({ ...message, useful: !message.useful })
+    },
+    [message, onEditMessage]
+  )
 
   return (
     <MenusBar className={`menubar ${isLastMessage && 'show'}`}>
+      {message.role === 'user' && (
+        <Tooltip title={t('common.regenerate')} mouseEnterDelay={0.8}>
+          <ActionButton className="message-action-button" onClick={onResendUserMessage}>
+            <SyncOutlined />
+          </ActionButton>
+        </Tooltip>
+      )}
       {message.role === 'user' && (
         <Tooltip title={t('common.edit')} mouseEnterDelay={0.8}>
           <ActionButton className="message-action-button" onClick={onEdit}>
@@ -270,13 +367,14 @@ const MessageMenubar: FC<Props> = (props) => {
                 key: 'translate-close',
                 onClick: () => onEditMessage?.({ ...message, translatedContent: undefined })
               }
-            ]
+            ],
+            onClick: (e) => e.domEvent.stopPropagation()
           }}
           trigger={['click']}
           placement="topRight"
           arrow>
           <Tooltip title={t('chat.translate')} mouseEnterDelay={1.2}>
-            <ActionButton className="message-action-button">
+            <ActionButton className="message-action-button" onClick={(e) => e.stopPropagation()}>
               <TranslationOutlined />
             </ActionButton>
           </Tooltip>
@@ -298,14 +396,25 @@ const MessageMenubar: FC<Props> = (props) => {
         <Tooltip title={t('common.delete')} mouseEnterDelay={1}>
           <ActionButton
             className="message-action-button"
-            onClick={isGrouped ? () => onDeleteMessage?.(message) : undefined}>
+            onClick={
+              isGrouped
+                ? (e) => {
+                    e.stopPropagation()
+                    onDeleteMessage?.(message)
+                  }
+                : (e) => e.stopPropagation()
+            }>
             <DeleteOutlined />
           </ActionButton>
         </Tooltip>
       </Popconfirm>
       {!isUserMessage && (
-        <Dropdown menu={{ items: dropdownItems }} trigger={['click']} placement="topRight" arrow>
-          <ActionButton className="message-action-button">
+        <Dropdown
+          menu={{ items: dropdownItems, onClick: (e) => e.domEvent.stopPropagation() }}
+          trigger={['click']}
+          placement="topRight"
+          arrow>
+          <ActionButton className="message-action-button" onClick={(e) => e.stopPropagation()}>
             <MenuOutlined />
           </ActionButton>
         </Dropdown>
@@ -320,7 +429,6 @@ const MenusBar = styled.div`
   justify-content: flex-end;
   align-items: center;
   gap: 6px;
-  margin-left: -5px;
 `
 
 const ActionButton = styled.div`
