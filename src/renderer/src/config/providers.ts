@@ -12,6 +12,7 @@ import FireworksProviderLogo from '@renderer/assets/images/providers/fireworks.p
 import GiteeAIProviderLogo from '@renderer/assets/images/providers/gitee-ai.png'
 import GithubProviderLogo from '@renderer/assets/images/providers/github.png'
 import GoogleProviderLogo from '@renderer/assets/images/providers/google.png'
+import GPUStackProviderLogo from '@renderer/assets/images/providers/gpustack.svg'
 import GraphRagProviderLogo from '@renderer/assets/images/providers/graph-rag.png'
 import GrokProviderLogo from '@renderer/assets/images/providers/grok.png'
 import GroqProviderLogo from '@renderer/assets/images/providers/groq.png'
@@ -33,6 +34,7 @@ import PerplexityProviderLogo from '@renderer/assets/images/providers/perplexity
 import PPIOProviderLogo from '@renderer/assets/images/providers/ppio.png'
 import SiliconFlowProviderLogo from '@renderer/assets/images/providers/silicon.png'
 import StepProviderLogo from '@renderer/assets/images/providers/step.png'
+import TencentCloudProviderLogo from '@renderer/assets/images/providers/tencent-cloud-ti.png'
 import TogetherProviderLogo from '@renderer/assets/images/providers/together.png'
 import BytedanceProviderLogo from '@renderer/assets/images/providers/volcengine.png'
 import XirangProviderLogo from '@renderer/assets/images/providers/xirang.png'
@@ -120,6 +122,10 @@ export function getProviderLogo(providerId: string) {
       return InfiniProviderLogo
     case 'o3':
       return O3ProviderLogo
+    case 'tencent-cloud-ti':
+      return TencentCloudProviderLogo
+    case 'gpustack':
+      return GPUStackProviderLogo
     default:
       return undefined
   }
@@ -557,6 +563,27 @@ export const PROVIDER_CONFIG = {
       apiKey: 'https://console.bce.baidu.com/iam/#/iam/apikey/list',
       docs: 'https://cloud.baidu.com/doc/index.html',
       models: 'https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Fm2vrveyu'
+    }
+  },
+  'tencent-cloud-ti': {
+    api: {
+      url: 'https://api.lkeap.cloud.tencent.com'
+    },
+    websites: {
+      official: 'https://cloud.tencent.com/product/ti',
+      apiKey: 'https://console.cloud.tencent.com/lkeap/api',
+      docs: 'https://cloud.tencent.com/document/product/1772',
+      models: 'https://console.cloud.tencent.com/tione/v2/aimarket'
+    }
+  },
+  gpustack: {
+    api: {
+      url: ''
+    },
+    websites: {
+      official: 'https://gpustack.ai/',
+      docs: 'https://docs.gpustack.ai/latest/',
+      models: 'https://docs.gpustack.ai/latest/overview/#supported-models'
     }
   }
 }

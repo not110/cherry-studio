@@ -34,6 +34,7 @@ export interface SettingsState {
   fontSize: number
   topicPosition: 'left' | 'right'
   showTopicTime: boolean
+  showAssistantIcon: boolean
   pasteLongTextAsFile: boolean
   pasteLongTextThreshold: number
   clickAssistantToShowTopic: boolean
@@ -41,6 +42,7 @@ export interface SettingsState {
   renderInputMessageAsMarkdown: boolean
   codeShowLineNumbers: boolean
   codeCollapsible: boolean
+  codeWrappable: boolean
   mathEngine: 'MathJax' | 'KaTeX'
   messageStyle: 'plain' | 'bubble'
   codeStyle: CodeStyleVarious
@@ -70,6 +72,7 @@ export interface SettingsState {
   notionDatabaseID: string | null
   notionApiKey: string | null
   notionPageNameKey: string | null
+  markdownExportPath: string | null
   thoughtAutoCollapse: boolean
   notionAutoSplit: boolean
   notionSplitSize: number
@@ -98,6 +101,7 @@ const initialState: SettingsState = {
   fontSize: 14,
   topicPosition: 'left',
   showTopicTime: false,
+  showAssistantIcon: false,
   pasteLongTextAsFile: false,
   pasteLongTextThreshold: 1500,
   clickAssistantToShowTopic: false,
@@ -105,6 +109,7 @@ const initialState: SettingsState = {
   renderInputMessageAsMarkdown: false,
   codeShowLineNumbers: false,
   codeCollapsible: false,
+  codeWrappable: false,
   mathEngine: 'KaTeX',
   messageStyle: 'plain',
   codeStyle: 'auto',
@@ -132,6 +137,7 @@ const initialState: SettingsState = {
   notionDatabaseID: '',
   notionApiKey: '',
   notionPageNameKey: 'Name',
+  markdownExportPath: null,
   thoughtAutoCollapse: true,
   notionAutoSplit: false,
   notionSplitSize: 90,
@@ -202,6 +208,9 @@ const settingsSlice = createSlice({
     setShowTopicTime: (state, action: PayloadAction<boolean>) => {
       state.showTopicTime = action.payload
     },
+    setShowAssistantIcon: (state, action: PayloadAction<boolean>) => {
+      state.showAssistantIcon = action.payload
+    },
     setPasteLongTextAsFile: (state, action: PayloadAction<boolean>) => {
       state.pasteLongTextAsFile = action.payload
     },
@@ -237,6 +246,9 @@ const settingsSlice = createSlice({
     },
     setCodeCollapsible: (state, action: PayloadAction<boolean>) => {
       state.codeCollapsible = action.payload
+    },
+    setCodeWrappable: (state, action: PayloadAction<boolean>) => {
+      state.codeWrappable = action.payload
     },
     setMathEngine: (state, action: PayloadAction<'MathJax' | 'KaTeX'>) => {
       state.mathEngine = action.payload
@@ -300,6 +312,9 @@ const settingsSlice = createSlice({
     setNotionPageNameKey: (state, action: PayloadAction<string>) => {
       state.notionPageNameKey = action.payload
     },
+    setmarkdownExportPath: (state, action: PayloadAction<string | null>) => {
+      state.markdownExportPath = action.payload
+    },
     setThoughtAutoCollapse: (state, action: PayloadAction<boolean>) => {
       state.thoughtAutoCollapse = action.payload
     },
@@ -341,6 +356,7 @@ export const {
   setWindowStyle,
   setTopicPosition,
   setShowTopicTime,
+  setShowAssistantIcon,
   setPasteLongTextAsFile,
   setRenderInputMessageAsMarkdown,
   setClickAssistantToShowTopic,
@@ -353,6 +369,7 @@ export const {
   setWebdavSyncInterval,
   setCodeShowLineNumbers,
   setCodeCollapsible,
+  setCodeWrappable,
   setMathEngine,
   setGridColumns,
   setGridPopoverTrigger,
@@ -372,6 +389,7 @@ export const {
   setNotionDatabaseID,
   setNotionApiKey,
   setNotionPageNameKey,
+  setmarkdownExportPath,
   setThoughtAutoCollapse,
   setNotionAutoSplit,
   setNotionSplitSize,

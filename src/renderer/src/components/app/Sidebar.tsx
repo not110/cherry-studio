@@ -6,12 +6,13 @@ import {
   TranslationOutlined
 } from '@ant-design/icons'
 import { isMac } from '@renderer/config/constant'
-import { AppLogo, isLocalAi, UserAvatar } from '@renderer/config/env'
+import { AppLogo, UserAvatar } from '@renderer/config/env'
 import { useTheme } from '@renderer/context/ThemeProvider'
 import useAvatar from '@renderer/hooks/useAvatar'
 import { useMinapps } from '@renderer/hooks/useMinapps'
 import { modelGenerating, useRuntime } from '@renderer/hooks/useRuntime'
 import { useSettings } from '@renderer/hooks/useSettings'
+import { isEmoji } from '@renderer/utils'
 import type { MenuProps } from 'antd'
 import { Tooltip } from 'antd'
 import { Avatar } from 'antd'
@@ -64,7 +65,11 @@ const Sidebar: FC = () => {
         backgroundColor: sidebarBgColor,
         zIndex: minappShow ? 10000 : 'initial'
       }}>
-      <AvatarImg src={avatar || UserAvatar} draggable={false} className="nodrag" onClick={onEditUser} />
+      {isEmoji(avatar) ? (
+        <EmojiAvatar onClick={onEditUser}>{avatar}</EmojiAvatar>
+      ) : (
+        <AvatarImg src={avatar || UserAvatar} draggable={false} className="nodrag" onClick={onEditUser} />
+      )}
       <MainMenusContainer>
         <Menus onClick={MinApp.onClose}>
           <MainMenus />
@@ -98,10 +103,9 @@ const Sidebar: FC = () => {
         <Tooltip title={t('settings.title')} mouseEnterDelay={0.8} placement="right">
           <StyledLink
             onClick={async () => {
-              if (minappShow) {
-                await MinApp.close()
-              }
-              await to(isLocalAi ? '/settings/assistant' : '/settings/provider')
+              minappShow && (await MinApp.close())
+              await modelGenerating()
+              await to('/settings/provider')
             }}>
             <Icon className={pathname.startsWith('/settings') && !minappShow ? 'active' : ''}>
               <i className="iconfont icon-setting" />
@@ -151,9 +155,8 @@ const MainMenus: FC = () => {
       <Tooltip key={icon} title={t(`${icon}.title`)} mouseEnterDelay={0.8} placement="right">
         <StyledLink
           onClick={async () => {
-            if (minappShow) {
-              await MinApp.close()
-            }
+            minappShow && (await MinApp.close())
+            await modelGenerating()
             navigate(path)
           }}>
           <Icon className={isActive}>{iconMap[icon]}</Icon>
@@ -220,6 +223,24 @@ const AvatarImg = styled(Avatar)`
   border: none;
   cursor: pointer;
 `
+
+const EmojiAvatar = styled.div`
+  width: 31px;
+  height: 31px;
+  background-color: var(--color-background-soft);
+  margin-bottom: ${isMac ? '12px' : '12px'};
+  margin-top: ${isMac ? '0px' : '2px'};
+  border-radius: 20%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  -webkit-app-region: none;
+  border: 0.5px solid var(--color-border);
+  font-size: 20px;
+`
+
 const MainMenusContainer = styled.div`
   display: flex;
   flex: 1;

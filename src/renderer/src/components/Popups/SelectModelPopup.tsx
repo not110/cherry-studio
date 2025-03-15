@@ -63,41 +63,58 @@ const PopupContainer: React.FC<PopupContainerProps> = ({ model, resolve }) => {
     setPinnedModels(sortBy(newPinnedModels, ['group', 'name']))
   }
 
+  // 根据输入的文本筛选模型
+  const getFilteredModels = useCallback(
+    (provider) => {
+      let models = provider.models.filter((m) => !isEmbeddingModel(m))
+
+      if (searchText.trim()) {
+        const keywords = searchText.toLowerCase().split(/\s+/).filter(Boolean)
+        models = models.filter((m) => {
+          const fullName = provider.isSystem
+            ? `${m.name} ${provider.name} ${t('provider.' + provider.id)}`
+            : `${m.name} ${provider.name}`
+
+          const lowerFullName = fullName.toLowerCase()
+          return keywords.every((keyword) => lowerFullName.includes(keyword))
+        })
+      }
+
+      return sortBy(models, ['group', 'name'])
+    },
+    [searchText, t]
+  )
+
   const filteredItems: MenuItem[] = providers
     .filter((p) => p.models && p.models.length > 0)
     .map((p) => {
-      const filteredModels = sortBy(p.models, ['group', 'name'])
-        .filter((m) => !isEmbeddingModel(m))
-        .filter((m) =>
-          [m.name + m.provider + t('provider.' + p.id)].join('').toLowerCase().includes(searchText.toLowerCase())
-        )
-        .map((m) => ({
-          key: getModelUniqId(m),
-          label: (
-            <ModelItem>
-              <ModelNameRow>
-                <span>{m?.name}</span> <ModelTags model={m} />
-              </ModelNameRow>
-              <PinIcon
-                onClick={(e) => {
-                  e.stopPropagation()
-                  togglePin(getModelUniqId(m))
-                }}
-                isPinned={pinnedModels.includes(getModelUniqId(m))}>
-                <PushpinOutlined />
-              </PinIcon>
-            </ModelItem>
-          ),
-          icon: (
-            <Avatar src={getModelLogo(m?.id || '')} size={24}>
-              {first(m?.name)}
-            </Avatar>
-          ),
-          onClick: () => {
-            resolve(m)
-            setOpen(false)
-          }
-        }))
+      const filteredModels = getFilteredModels(p).map((m) => ({
+        key: getModelUniqId(m),
+        label: (
+          <ModelItem>
+            <ModelNameRow>
+              <span>{m?.name}</span> <ModelTags model={m} />
+            </ModelNameRow>
+            <PinIcon
+              onClick={(e) => {
+                e.stopPropagation()
+                togglePin(getModelUniqId(m))
+              }}
+              isPinned={pinnedModels.includes(getModelUniqId(m))}>
+              <PushpinOutlined />
+            </PinIcon>
+          </ModelItem>
+        ),
+        icon: (
+          <Avatar src={getModelLogo(m?.id || '')} size={24}>
+            {first(m?.name)}
+          </Avatar>
+        ),
+        onClick: () => {
+          resolve(m)
+          setOpen(false)
+        }
+      }))
 
       // Only return the group if it has filtered models
       return filteredModels.length > 0
@@ -113,19 +130,29 @@ const PopupContainer: React.FC<PopupContainerProps> = ({ model, resolve }) => {
 
   if (pinnedModels.length > 0 && searchText.length === 0) {
     const pinnedItems = providers
-      .flatMap((p) => p.models || [])
-      .filter((m) => pinnedModels.includes(getModelUniqId(m)))
+      .flatMap((p) =>
+        p.models
+          .filter((m) => pinnedModels.includes(getModelUniqId(m)))
+          .map((m) => ({
+            key: getModelUniqId(m),
+            model: m,
+            provider: p
+          }))
+      )
       .map((m) => ({
-        key: getModelUniqId(m) + '_pinned',
+        key: getModelUniqId(m.model) + '_pinned',
         label: (
           <ModelItem>
             <ModelNameRow>
-              <span>{m?.name}</span> <ModelTags model={m} />
+              <span>
+                {m.model?.name} | {m.provider.isSystem ? t(`provider.${m.provider.id}`) : m.provider.name}
+              </span>{' '}
+              <ModelTags model={m.model} />
             </ModelNameRow>
             <PinIcon
               onClick={(e) => {
                 e.stopPropagation()
-                togglePin(getModelUniqId(m))
+                togglePin(getModelUniqId(m.model))
               }}
               isPinned={true}>
               <PushpinOutlined />
@@ -133,12 +160,12 @@ const PopupContainer: React.FC<PopupContainerProps> = ({ model, resolve }) => {
           </ModelItem>
         ),
         icon: (
-          <Avatar src={getModelLogo(m?.id || '')} size={24}>
-            {first(m?.name)}
+          <Avatar src={getModelLogo(m.model?.id || '')} size={24}>
+            {first(m.model?.name)}
           </Avatar>
         ),
         onClick: () => {
-          resolve(m)
+          resolve(m.model)
           setOpen(false)
         }
       }))
@@ -194,27 +221,22 @@ const PopupContainer: React.FC<PopupContainerProps> = ({ model, resolve }) => {
     // 添加其他过滤后的模型
     providers.forEach((p) => {
       if (p.models) {
-        sortBy(p.models, ['group', 'name'])
-          .filter((m) => !isEmbeddingModel(m))
-          .filter((m) =>
-            [m.name + m.provider + t('provider.' + p.id)].join('').toLowerCase().includes(searchText.toLowerCase())
-          )
-          .forEach((m) => {
-            const modelId = getModelUniqId(m)
-            const isPinned = pinnedModels.includes(modelId)
-            // 如果是搜索状态，或者不是固定模型，才添加到列表中
-            if (searchText.length > 0 || !isPinned) {
-              items.push({
-                key: isPinned ? modelId + '_pinned' : modelId,
-                model: m
-              })
-            }
-          })
+        getFilteredModels(p).forEach((m) => {
+          const modelId = getModelUniqId(m)
+          const isPinned = pinnedModels.includes(modelId)
+          // 如果是搜索状态，或者不是固定模型，才添加到列表中
+          if (searchText.length > 0 || !isPinned) {
+            items.push({
+              key: isPinned ? modelId + '_pinned' : modelId,
+              model: m
+            })
+          }
+        })
       }
     })
 
     return items
-  }, [pinnedModels, searchText, providers, t])
+  }, [pinnedModels, searchText, providers, getFilteredModels])
 
   // 处理键盘导航
   const handleKeyDown = useCallback(
@@ -263,6 +285,8 @@ const PopupContainer: React.FC<PopupContainerProps> = ({ model, resolve }) => {
     setKeyboardSelectedId('')
   }, [searchText])
 
+  const selectedKeys = keyboardSelectedId ? [keyboardSelectedId] : model ? [getModelUniqId(model)] : []
+
   return (
     <Modal
       centered
@@ -295,7 +319,7 @@ const PopupContainer: React.FC<PopupContainerProps> = ({ model, resolve }) => {
           allowClear
           autoFocus
           style={{ paddingLeft: 0 }}
-          bordered={false}
+          variant="borderless"
           size="middle"
           onKeyDown={(e) => {
             // 防止上下键移动光标
@@ -309,7 +333,7 @@ const PopupContainer: React.FC<PopupContainerProps> = ({ model, resolve }) => {
       <Scrollbar style={{ height: '50vh' }} ref={scrollContainerRef}>
         <Container>
           {filteredItems.length > 0 ? (
-            <StyledMenu items={filteredItems} selectedKeys={[keyboardSelectedId]} mode="inline" inlineIndent={6} />
+            <StyledMenu items={filteredItems} selectedKeys={selectedKeys} mode="inline" inlineIndent={6} />
           ) : (
             <EmptyState>
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
@@ -332,8 +356,27 @@ const StyledMenu = styled(Menu)`
   max-height: calc(60vh - 50px);
 
   .ant-menu-item-group-title {
-    padding: 5px 10px 0;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: 0 -5px;
+    padding: 5px 10px;
+    padding-left: 18px;
     font-size: 12px;
+    font-weight: 500;
+
+    /* Scroll-driven animation for sticky header */
+    animation: background-change linear both;
+    animation-timeline: scroll();
+    animation-range: entry 0% entry 1%;
+  }
+
+  /* Simple animation that changes background color when sticky */
+  @keyframes background-change {
+    to {
+      background-color: var(--color-background-soft);
+      opacity: 0.95;
+    }
   }
 
   .ant-menu-item {

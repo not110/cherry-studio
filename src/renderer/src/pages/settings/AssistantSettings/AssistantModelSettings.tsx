@@ -154,6 +154,7 @@ const AssistantModelSettings: FC<Props> = ({ assistant, updateAssistant, updateA
     setMaxTokens(0)
     setStreamOutput(true)
     setTopP(1)
+    setReasoningEffort(undefined)
     setCustomParameters([])
     updateAssistantSettings({
       temperature: DEFAULT_TEMPERATURE,
@@ -162,6 +163,7 @@ const AssistantModelSettings: FC<Props> = ({ assistant, updateAssistant, updateA
       maxTokens: 0,
       streamOutput: true,
       topP: 1,
+      reasoning_effort: undefined,
       customParameters: []
     })
   }
@@ -181,6 +183,11 @@ const AssistantModelSettings: FC<Props> = ({ assistant, updateAssistant, updateA
   useEffect(() => {
     return () => updateAssistantSettings({ customParameters: customParametersRef.current })
   }, [])
+
+  const formatSliderTooltip = (value?: number) => {
+    if (value === undefined) return ''
+    return value === 20 ? '∞' : value.toString()
+  }
 
   return (
     <Container>
@@ -296,6 +303,7 @@ const AssistantModelSettings: FC<Props> = ({ assistant, updateAssistant, updateA
             value={typeof contextCount === 'number' ? contextCount : 0}
             marks={{ 0: '0', 5: '5', 10: '10', 15: '15', 20: t('chat.settings.max') }}
             step={1}
+            tooltip={{ formatter: formatSliderTooltip }}
           />
         </Col>
         <Col span={4}>
